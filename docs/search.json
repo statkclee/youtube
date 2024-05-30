@@ -1,16 +1,30 @@
 [
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "유튜브",
-    "section": "",
-    "text": "유튜브"
-  },
-  {
     "objectID": "about.html",
     "href": "about.html",
     "title": "About",
     "section": "",
     "text": "About this site\n\n1 + 1\n\n[1] 2"
+  },
+  {
+    "objectID": "document.html",
+    "href": "document.html",
+    "title": "델리민주 유튜브 대시보드 문서",
+    "section": "",
+    "text": "민주당 유튜브 채널: 델리민주 Daily Minjoo\n\n채널 ID: UCoQD2xsqwzJA93PTIYERokg\n\n\n\n\n\nlibrary(tuber)\n\nyt_oauth(app_id = Sys.getenv(\"YT_CLIENT_ID\"), \n         app_secret = Sys.getenv(\"YT_CLIENT_SECRET\"),\n         token = \".httr-oauth\")\n\n\n\n\n\n# tuber 패키지 로드\nlibrary(tuber)\n\nminju_channel_id &lt;- \"UCoQD2xsqwzJA93PTIYERokg\"\n\n# 인증된 사용자의 채널 정보 가져오기\nchannel_info &lt;- get_channel_stats(minju_channel_id)\n\n# listviewer::jsonedit(channel_info)\n\nminju_channel_stat &lt;- tibble(\"조회수\" = channel_info$statistics$viewCount,\n       \"구독자수\" = channel_info$statistics$subscriberCount,\n       \"비디오수\" = channel_info$statistics$videoCount)\n\nfs::dir_create(\"data\")\n\nminju_channel_stat |&gt; \n  write_csv(str_glue(\"data/minju_channel_stat_{str_remove_all(Sys.Date(), '-')}.csv\"))"
+  },
+  {
+    "objectID": "document.html#유튜브-api-인증",
+    "href": "document.html#유튜브-api-인증",
+    "title": "델리민주 유튜브 대시보드 문서",
+    "section": "",
+    "text": "library(tuber)\n\nyt_oauth(app_id = Sys.getenv(\"YT_CLIENT_ID\"), \n         app_secret = Sys.getenv(\"YT_CLIENT_SECRET\"),\n         token = \".httr-oauth\")"
+  },
+  {
+    "objectID": "document.html#데이터-가져오기",
+    "href": "document.html#데이터-가져오기",
+    "title": "델리민주 유튜브 대시보드 문서",
+    "section": "",
+    "text": "# tuber 패키지 로드\nlibrary(tuber)\n\nminju_channel_id &lt;- \"UCoQD2xsqwzJA93PTIYERokg\"\n\n# 인증된 사용자의 채널 정보 가져오기\nchannel_info &lt;- get_channel_stats(minju_channel_id)\n\n# listviewer::jsonedit(channel_info)\n\nminju_channel_stat &lt;- tibble(\"조회수\" = channel_info$statistics$viewCount,\n       \"구독자수\" = channel_info$statistics$subscriberCount,\n       \"비디오수\" = channel_info$statistics$videoCount)\n\nfs::dir_create(\"data\")\n\nminju_channel_stat |&gt; \n  write_csv(str_glue(\"data/minju_channel_stat_{str_remove_all(Sys.Date(), '-')}.csv\"))"
   }
 ]
