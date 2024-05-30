@@ -83,7 +83,7 @@ minju_videos_stats_tbl |>
         vidoe_id = colDef(html = TRUE, cell = JS("
           function(cellInfo) {
             // Render as a link
-            return '<a href=https://www.youtube.com/channel/' + cellInfo.value + '/>' + cellInfo.value + '</a>'
+            return '<a href=https://www.youtube.com//watch?v=' + cellInfo.value + '/>' + cellInfo.value + '</a>'
           }"))
       ),
       bordered = TRUE,
