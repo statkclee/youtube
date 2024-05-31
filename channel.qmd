@@ -1,0 +1,117 @@
+
+# 채널
+
+```{r}
+library(readr)
+
+# minju_channel_stat <-   readr::read_csv(str_glue("data/minju_channel_stat_{str_remove_all(Sys.Date(), '-')}.csv"))
+
+minju_channel_stat <- readr::read_csv("data/minju_channel_stat_20240530.csv")
+```
+
+
+## Row
+
+```{r}
+#| content: valuebox
+#| title: "구독자수"
+
+list(
+  icon = "hospital",
+  color = "yellow",
+  value = scales::comma(minju_channel_stat$`구독자수`)
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "조회수"
+
+list(
+  icon = "moon-fill",
+  color = "danger",
+  value = scales::comma(minju_channel_stat$`조회수`)
+)
+```
+
+
+```{r}
+#| content: valuebox
+#| title: "비디오수"
+
+list(
+  icon = "heart-fill",
+  color = "green",
+  value = scales::comma(minju_channel_stat$`비디오수`)
+)
+```
+
+## Column
+
+::: {.card}
+
+```{r}
+library(reactable)
+
+# minju_videos_stats_tbl <- 
+# readr::read_csv(str_glue("data/minju_videos_stats_{str_remove_all(Sys.Date(), '-')}.csv"))
+
+minju_videos_stats_tbl <- readr::read_csv("data/minju_videos_stats_20240530.csv")
+
+
+minju_videos_stats_tbl |> 
+  arrange(desc(publication_date)) |> 
+  mutate(게시일 = floor_date(publication_date, unit = "day") |> as.Date()) |> 
+  select(vidoe_id = id, 명칭=title, 게시일, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
+  reactable(
+      searchable = TRUE,
+      defaultColDef = colDef(
+        header = function(value) gsub(".", " ", value, fixed = TRUE),
+        align = "center",
+        minWidth = 30,
+        headerStyle = list(background = "#f7f7f8")
+      ),
+      columns = list(
+        명칭 = colDef(minWidth = 80),
+        게시일 = colDef(show = TRUE),
+        조회수   = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        좋아요수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        댓글수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        vidoe_id = colDef(html = TRUE, cell = JS("
+          function(cellInfo) {
+            // Render as a link
+            return '<a href=https://www.youtube.com//watch?v=' + cellInfo.value + '/>' + cellInfo.value + '</a>'
+          }"))
+      ),
+      bordered = TRUE,
+      highlight = TRUE    
+  )
+
+```
+
+
+:::
+
+::: {.card}
+
+```{r}
+yt_g <- minju_videos_stats_tbl |> 
+  select(title, publication_date, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
+  pivot_longer(cols = c(조회수, 좋아요수, 댓글수), names_to = "key", values_to = "value") |> 
+  mutate(key = factor(key, levels = c("조회수", "좋아요수", "댓글수"))) |> 
+  ggplot(aes(x = publication_date, y = value, group = key, color = key,
+             text = str_glue("{title}<br>{floor_date(publication_date, unit = 'day')}"))) +
+    geom_line(size = 0.3) +
+    geom_point(size = 0.5) +
+    facet_grid(rows = vars(key), scales = "free_y") +
+    theme(legend.position = "none") +
+    labs(title = "유튜브 비디오 활동성 지표", x = "게시일", y = "") +
+    scale_y_sqrt(labels = scales::comma) 
+
+plotly::ggplotly(yt_g, tooltip = "text")
+
+```
+
+
+:::
+

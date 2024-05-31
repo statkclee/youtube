@@ -5,3 +5,5 @@
 /.quarto/
 .httr-oauth
 document.qmd
+data/comment
+
