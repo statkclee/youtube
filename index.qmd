@@ -18,7 +18,7 @@ editor_options:
 ```{r}
 library(readr)
 
-comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat.csv")
+comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat_all.csv")
 
 comment_sentiment_all <- comment_sentiment_stat |> 
   summarise(긍정 = sum(긍정),
@@ -117,7 +117,8 @@ comment_sentiment_stat |>
 #| include: false
 #| eval: true
 
-comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat.csv")
+comment_sentiment_stat <- comment_sentiment_stat |> 
+  arrange(desc(긍정))
 
 ojs_define(sentiment_ojs = comment_sentiment_stat)
 ```

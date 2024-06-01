@@ -10,4 +10,6 @@ data/comments_with_sentiment.csv
 data/comments_raw.csv
 data/comments_only_text.csv
 bfg.jar
+data/comments_raw_second.csv
+data/comments_with_sentiment_second.csv
 
