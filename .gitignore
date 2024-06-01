@@ -6,4 +6,6 @@
 .httr-oauth
 document.qmd
 data/comment
-
+data/comments_with_sentiment.csv
+data/comments_raw.csv
+data/comments_only_text.csv

@@ -10,26 +10,24 @@ editor_options:
 
 {{< include channel.qmd >}}
 
-# 댓글
+{{< include comments_stat.qmd >}}
+
+# 댓글 감성분석
+
 
 ```{r}
 library(readr)
 
-comments_tbl <- read_csv("data/comments_raw.csv")
+comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat.csv")
 
-## 댓글 사용자수 ----------------
-number_of_users <- comments_tbl |> 
-  count(authorDisplayName, id, sort = TRUE) |> 
-  nrow()
+comment_sentiment_all <- comment_sentiment_stat |> 
+  summarise(긍정 = sum(긍정),
+            부정 = sum(부정),
+            중립 = sum(중립)) |> 
+  mutate(긍정비율 = 긍정 / sum(긍정, 부정, 중립),
+         중립비율 = 중립 / sum(긍정, 부정, 중립),
+         부정비율 = 부정 / sum(긍정, 부정, 중립))
 
-## 댓글수 ----------------
-number_of_comments <- comments_tbl |> 
-  nrow()
-
-## 비디오수 ----------------
-number_of_videos <- comments_tbl |> 
-  count(videoId) |>
-  nrow()
 ```
 
 
@@ -37,35 +35,35 @@ number_of_videos <- comments_tbl |>
 
 ```{r}
 #| content: valuebox
-#| title: "댓글 사람수"
+#| title: "긍정 댓글 (비율)"
 
 list(
   icon = "hospital",
-  color = "yellow",
-  value = number_of_users
+  color = "green",
+   value = as.character(str_glue("{scales::comma(comment_sentiment_all$긍정)} ({scales::percent(comment_sentiment_all$긍정비율)})"))
 )
 ```
 
 ```{r}
 #| content: valuebox
-#| title: "댓글수"
+#| title: "중립 댓글 (비율)"
 
 list(
   icon = "moon-fill",
-  color = "danger",
-  value = number_of_comments
+  color = "yellow",
+  value = as.character(str_glue("{scales::comma(comment_sentiment_all$중립)} ({scales::percent(comment_sentiment_all$중립비율)})"))
 )
 ```
 
 
 ```{r}
 #| content: valuebox
-#| title: "비디오수"
+#| title: "부정 댓글 (비율)"
 
 list(
   icon = "heart-fill",
-  color = "green",
-  value = number_of_videos
+  color = "red",
+  value = as.character(str_glue("{scales::comma(comment_sentiment_all$부정)} ({scales::percent(comment_sentiment_all$부정비율)})"))
 )
 ```
 
@@ -76,31 +74,35 @@ list(
 ```{r}
 library(reactable)
 
-
-comments_tbl |> 
-  arrange(desc(publishedAt)) |> 
-  mutate(게시일 = floor_date(publishedAt, unit = "day") |> as.Date()) |> 
-  select(vidoe_id = videoId, 댓글=textOriginal, 게시일, 좋아요수=likeCount) |> 
+comment_sentiment_stat |> 
+  arrange(desc(긍정)) |> 
+  rename(vidoe_id = videoId) |> 
   reactable(
       searchable = TRUE,
       defaultColDef = colDef(
         header = function(value) gsub(".", " ", value, fixed = TRUE),
         align = "center",
-        minWidth = 30,
+        minWidth = 60,
         headerStyle = list(background = "#f7f7f8")
       ),
       columns = list(
-        댓글 = colDef(minWidth = 80),
-        게시일 = colDef(show = TRUE),
-        좋아요수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
         vidoe_id = colDef(html = TRUE, cell = JS("
           function(cellInfo) {
             // Render as a link
             return '<a href=https://www.youtube.com//watch?v=' + cellInfo.value + '/>' + cellInfo.value + '</a>'
-          }"))
-      ),
+          }"),
+        minWidth = 100
+        ),
+        댓글수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        긍정   = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        중립   = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        부정   = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        긍정비율   = colDef(format = colFormat(percent = TRUE, digits = 1)),
+        중립비율   = colDef(format = colFormat(percent = TRUE, digits = 1)),
+        부정비율   = colDef(format = colFormat(percent = TRUE, digits = 1)),
       bordered = TRUE,
       highlight = TRUE    
+    )
   )
 
 ```
@@ -110,22 +112,57 @@ comments_tbl |>
 
 ::: {.card}
 
-```{r}
-comments_g <- comments_tbl |> 
-  group_by(videoId) |>
-  summarise(좋아요수 = sum(likeCount),
-            댓글수   = n()) |> 
-  ungroup() |> 
-  ggplot(aes(x = 댓글수, y = 좋아요수,
-             text = str_glue("{videoId}"))) +
-    geom_point() +
-    scale_x_sqrt(labels = scales::comma) +
-    scale_y_sqrt(labels = scales::comma) +
-    theme(legend.position = "none") +
-    labs(title = "동영상 별 댓글수와 좋아요수 관계") 
-  
-plotly::ggplotly(comments_g, tooltip = "text")
+```{r, load_kpop}
+#| echo: false
+#| include: false
+#| eval: true
+
+comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat.csv")
+
+ojs_define(sentiment_ojs = comment_sentiment_stat)
+```
+
+
+```{ojs}
+//| expandable: false
+
+// Tranpose the data to  make it usable in ojs
+youtube_sentiment = transpose(sentiment_ojs)
+
+// Create a dropdown menu of the youtube
+viewof youtubeDropdown = Inputs.select(
+  youtube_sentiment.map(d => d.videoId),
+  {
+    label: "동영상 선택하세요",
+    unique: true
+  }
+)
+```
+
+
+```{ojs}
+//| expandable: false
+html`<iframe width="560" height="315" 
+  src=${`https://www.youtube.com/embed/${youtubeDropdown}`} 
+  title="YouTube video player" 
+  frameborder="0" 
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+  referrerpolicy="strict-origin-when-cross-origin" 
+  allowfullscreen>
+</iframe>`
+```
+
+```{ojs}
+//| expandable: false
+Inputs.table(
+  youtube_sentiment.filter(d => d.videoId === youtubeDropdown),
+  {
+    layout: "auto",
+    columns: ["긍정", "부정", "중립", "댓글수", "긍정비율", "중립비율", "부정비율"]
+  }
+)
 ```
 
 
 :::
+
