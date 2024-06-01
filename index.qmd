@@ -118,7 +118,8 @@ comment_sentiment_stat |>
 #| eval: true
 
 comment_sentiment_stat <- comment_sentiment_stat |> 
-  arrange(desc(긍정))
+  arrange(desc(긍정)) |> 
+  mutate(across(c(긍정비율, 중립비율, 부정비율), ~ scales::percent(.x, accuracy = 0.1)))
 
 ojs_define(sentiment_ojs = comment_sentiment_stat)
 ```
