@@ -1,0 +1,581 @@
+---
+title: "델리민주 유튜브 대시보드 문서"
+editor_options: 
+  chunk_output_type: console
+---
+
+# 1. 유튜브 API 인증
+
+```{r}
+library(reticulate)
+
+use_virtualenv("gpt-ds", required = TRUE)
+virtualenv_install("d:/envs/gpt-ds", c("google-auth ", "google-auth-oauthlib ", "google-auth-httplib2 ", "google-api-python-client"))
+
+```
+
+
+```{python}
+#| eval: false
+import os
+from dotenv import load_dotenv
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+
+# .env 파일에서 환경 변수를 로드합니다.
+load_dotenv()
+
+# 환경 변수에서 클라이언트 ID와 클라이언트 비밀 키를 가져옵니다.
+CLIENT_ID = os.getenv("YT_CLIENT_ID")
+CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
+
+# OAuth 2.0 클라이언트 설정
+CLIENT_CONFIG = {
+    "installed": {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "redirect_uris": ["http://localhost:9357/"]
+    }
+}
+
+# OAuth 2.0 흐름을 생성합니다.
+flow = InstalledAppFlow.from_client_config(CLIENT_CONFIG, scopes=["https://www.googleapis.com/auth/youtube.readonly"])
+
+# 사용자에게 인증 URL을 표시하고 인증 코드를 입력받습니다.
+credentials = flow.run_local_server(port=9357, prompt='consent')
+
+# 인증 정보를 저장합니다.
+with open('.httr-oauth', 'w') as token:
+    token.write(credentials.to_json())
+
+# YouTube API 클라이언트를 생성합니다.
+youtube = build('youtube', 'v3', credentials=credentials)
+
+# 이제 YouTube API를 사용할 준비가 되었습니다.
+def get_channel_info():
+    request = youtube.channels().list(
+        part="snippet,contentDetails,statistics",
+        mine=True
+    )
+    response = request.execute()
+    return response
+
+# 채널 정보를 출력합니다.
+if __name__ == "__main__":
+    channel_info = get_channel_info()
+    print("Channel Info:", channel_info)
+```
+
+# 1. 유튜브 채널
+
+- 민주당 유튜브 채널: [델리민주 Daily Minjoo](https://www.youtube.com/@dailyminjoo)
+  - 채널 ID: [UCoQD2xsqwzJA93PTIYERokg](https://www.youtube.com/channel/UCoQD2xsqwzJA93PTIYERokg)
+
+```{python}
+#| eval: false
+from googleapiclient.discovery import build
+import pandas as pd
+from datetime import datetime
+import os
+from dotenv import load_dotenv
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 환경 변수에서 API 키 가져오기
+api_key = os.getenv("YOUTUBE_APIKEY")
+youtube = build("youtube", "v3", developerKey=api_key)
+
+minju_channel_id = "UCoQD2xsqwzJA93PTIYERokg"
+
+# 채널 정보 가져오기
+channel_info = youtube.channels().list(
+    part="snippet,statistics,contentDetails,brandingSettings",
+    id=minju_channel_id
+).execute()
+
+# 채널 통계 정보 추출
+channel_stats = channel_info["items"][0]["statistics"]
+channel_snippet = channel_info["items"][0]["snippet"]
+channel_branding = channel_info["items"][0]["brandingSettings"]
+
+minju_channel_stat = pd.DataFrame({
+    "채널명": [channel_snippet["title"]],
+    "채널설명": [channel_snippet["description"]],
+    "채널국가": [channel_snippet["country"]],
+    "채널개설일": [channel_snippet["publishedAt"]],
+    "조회수": [int(channel_stats["viewCount"])],
+    "구독자수": [int(channel_stats["subscriberCount"])],
+    "비디오수": [int(channel_stats["videoCount"])]
+})
+
+# 데이터 저장 디렉토리 생성
+os.makedirs("data", exist_ok=True)
+os.makedirs("data/python", exist_ok=True)
+
+# 데이터 저장
+file_name = f"data/python/minju_channel_stat_{datetime.now().strftime('%Y%m%d')}.csv"
+minju_channel_stat.to_csv(file_name, index=False)
+```
+
+# 2. 채널 비디오 활동성
+
+```{python}
+#| eval: false
+from googleapiclient.discovery import build
+import pandas as pd
+from datetime import datetime
+import os
+from dotenv import load_dotenv
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 환경 변수에서 API 키 가져오기
+api_key = os.getenv("YOUTUBE_APIKEY")
+youtube = build("youtube", "v3", developerKey=api_key)
+
+minju_channel_id = "UCoQD2xsqwzJA93PTIYERokg"
+
+# 채널의 업로드된 동영상 재생목록 ID 가져오기
+channel_response = youtube.channels().list(
+    part="contentDetails",
+    id=minju_channel_id
+).execute()
+uploads_playlist_id = channel_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+# 재생목록의 모든 동영상 가져오기
+minju_videos_stats = []
+next_page_token = None
+total_videos = 0
+processed_videos = 0
+
+while True:
+    playlist_items_response = youtube.playlistItems().list(
+        part="snippet",
+        playlistId=uploads_playlist_id,
+        maxResults=50,
+        pageToken=next_page_token
+    ).execute()
+
+    total_videos = playlist_items_response["pageInfo"]["totalResults"]
+
+    for item in playlist_items_response["items"]:
+        video_id = item["snippet"]["resourceId"]["videoId"]
+        video_info = youtube.videos().list(
+            part="snippet,statistics",
+            id=video_id
+        ).execute()
+
+        if video_info["items"]:
+            video_stats = video_info["items"][0]["statistics"]
+            minju_videos_stats.append({
+                "videoId": video_id,
+                "title": item["snippet"]["title"],
+                "publishedAt": item["snippet"]["publishedAt"],
+                "viewCount": int(video_stats.get("viewCount", 0)),
+                "likeCount": int(video_stats.get("likeCount", 0)),
+                "favoriteCount": int(video_stats.get("favoriteCount", 0)),
+                "commentCount": int(video_stats.get("commentCount", 0))
+            })
+
+        processed_videos += 1
+        progress = (processed_videos / total_videos) * 100
+        print(f"진행률: {progress:.2f}%")
+
+    next_page_token = playlist_items_response.get("nextPageToken")
+
+    if not next_page_token:
+        break
+
+minju_videos_stats_df = pd.DataFrame(minju_videos_stats)
+
+# 데이터 저장
+os.makedirs("data/python", exist_ok=True)
+file_name = f"data/python/minju_videos_stats_{datetime.now().strftime('%Y%m%d')}.csv"
+minju_videos_stats_df.to_csv(file_name, index=False)
+```
+
+# 3. 댓글러 
+
+```{python}
+#| eval: false
+from googleapiclient.discovery import build
+import pandas as pd
+from datetime import datetime
+import os
+from dotenv import load_dotenv
+import time
+import random
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 환경 변수에서 API 키 가져오기
+api_key = os.getenv("YOUTUBE_APIKEY")
+youtube = build("youtube", "v3", developerKey=api_key)
+
+# CSV 파일에서 비디오 통계 정보 읽어오기
+minju_videos_stats_tbl = pd.read_csv("data/python/minju_videos_stats_20240602.csv")
+videoIds = minju_videos_stats_tbl["videoId"].unique()
+
+# 이미 크롤링된 비디오 ID 가져오기
+comment_files = os.listdir("data/python/comment")
+crawled_videoIds = [file.split("_")[0] for file in comment_files if file.endswith(".csv")]
+
+# 크롤링되지 않은 비디오 ID 필터링
+uncrawled_videoIds = [vid for vid in videoIds if vid not in crawled_videoIds]
+total_videos = len(uncrawled_videoIds)
+
+# 댓글 다운로드 함수
+def download_comments_from_video(videoId, video_index):
+    try:
+        video_comments = []
+        next_page_token = None
+
+        while True:
+            # 비디오 댓글 가져오기
+            comments_response = youtube.commentThreads().list(
+                part="snippet",
+                videoId=videoId,
+                maxResults=100,
+                pageToken=next_page_token,
+                textFormat="plainText"
+            ).execute()
+
+            for item in comments_response["items"]:
+                comment = item["snippet"]["topLevelComment"]["snippet"]
+                video_comments.append({
+                    "videoId": videoId,
+                    "commentId": item["id"],
+                    "authorDisplayName": comment["authorDisplayName"],
+                    "authorProfileImageUrl": comment["authorProfileImageUrl"],
+                    "authorChannelUrl": comment["authorChannelUrl"],
+                    "textDisplay": comment["textDisplay"],
+                    "likeCount": comment["likeCount"],
+                    "publishedAt": comment["publishedAt"],
+                    "updatedAt": comment["updatedAt"]
+                })
+
+            next_page_token = comments_response.get("nextPageToken")
+
+            if not next_page_token:
+                break
+
+        # 댓글 데이터프레임 생성
+        video_comments_df = pd.DataFrame(video_comments)
+
+        # CSV 파일로 저장
+        file_name = f"data/python/comment/{videoId}_{datetime.now().strftime('%Y%m%d')}.csv"
+        video_comments_df.to_csv(file_name, index=False)
+
+        print(f"Video ID: {videoId} - Comments downloaded and saved.")
+        
+    except Exception as e:
+        print(f"Video ID: {videoId} - Error occurred: {str(e)}")
+
+    # 진도율 계산 및 출력
+    progress = (video_index + 1) / total_videos * 100
+    print(f"Progress: {progress:.2f}%")
+
+    # 일정 시간 간격을 두고 다음 비디오 댓글 수집
+    time.sleep(random.uniform(1, 3))
+
+# 크롤링되지 않은 비디오의 댓글 다운로드
+for index, videoId in enumerate(uncrawled_videoIds):
+    download_comments_from_video(videoId, index)
+
+```
+
+
+# 4. 감성분석 
+
+## 4.1. 댓글 병합
+
+**순차처리**
+
+```{python}
+import os
+import pandas as pd
+from tqdm import tqdm
+
+# 'data/python/comment/' 디렉토리에서 CSV 파일 목록 가져오기
+comment_files = [file for file in os.listdir("data/python/comment") if file.endswith(".csv")]
+
+# CSV 파일들을 데이터프레임으로 읽어와서 결합하기
+dataframes = []
+for file in tqdm(comment_files, desc="파일 병합 진행율"):
+    file_path = os.path.join("data/python/comment", file)
+    
+    try:
+        df = pd.read_csv(file_path)
+        dataframes.append(df)
+    except pd.errors.EmptyDataError:
+        continue
+
+comments_raw = pd.concat(dataframes, ignore_index=True)
+
+# 결합된 데이터프레임을 CSV 파일로 저장하기
+comments_raw.to_csv("data/python/comments_raw.csv", index=False)
+```
+
+**병렬처리**
+
+> 동작하지 않음 ㅠㅠ
+
+```{python}
+#| eval: false
+import os
+import pandas as pd
+from multiprocessing import Pool
+
+def read_csv_file(file_path):
+    return pd.read_csv(file_path)
+
+def process_files(file_paths):
+    total_files = len(file_paths)
+    processed_files = 0
+
+    def progress_callback(result):
+        nonlocal processed_files
+        processed_files += 1
+        progress = (processed_files / total_files) * 100
+        print(f"Progress: {progress:.2f}%")
+
+    pool = Pool()
+    results = []
+    for file_path in file_paths:
+        result = pool.apply_async(read_csv_file, args=(file_path,), callback=progress_callback)
+        results.append(result)
+
+    pool.close()
+    pool.join()
+
+    dataframes = [result.get() for result in results]
+    return pd.concat(dataframes, ignore_index=True)
+
+if __name__ == "__main__":
+    # 'data/python/comment/' 디렉토리에서 CSV 파일 목록 가져오기
+    comment_files = [os.path.join("data/python/comment", file) for file in os.listdir("data/python/comment") if file.endswith(".csv")]
+
+    # 파일 읽기 작업을 병렬로 수행하고 진도율 출력
+    comments_raw = process_files(comment_files)
+
+    # 결합된 데이터프레임을 CSV 파일로 저장하기
+    comments_raw.to_csv("data/python/comments_raw.csv", index=False)
+
+    
+```
+
+
+> 프롬프트: 다음은 로컬 bert 모형 감성분석하는 파이썬 코드인데... 감성분석이 끝난 것은 제외하고 새로 나온 csv 파일만 감성분석해줘.
+
+
+
+```{python}
+import pandas as pd
+from transformers import pipeline
+from concurrent.futures import ThreadPoolExecutor
+import os
+import tqdm
+
+# 데이터 로드
+comments_df = pd.read_csv("data/python/comments_raw_second.csv")
+
+# NaN 값 제거
+comments_df = comments_df.dropna(subset=['textOriginal'])
+
+# 감성 분석 파이프라인 초기화
+classifier = pipeline("text-classification", model='nlptown/bert-base-multilingual-uncased-sentiment')
+
+# 별점을 감성으로 변환하는 함수 정의
+def star_to_sentiment(star_label):
+    if star_label in ['1 star', '2 stars']:
+        return 'Negative'
+    elif star_label == '3 stars':
+        return 'Neutral'
+    elif star_label in ['4 stars', '5 stars']:
+        return 'Positive'
+    else:
+        return 'Error'
+
+# 감성 분석 함수 정의 (텍스트 자르기 포함)
+def analyze_sentiment(text, idx):
+    if not isinstance(text, str):
+        return 'Error', 0.0
+
+    # 최대 토큰 길이 설정
+    max_length = 512
+    truncated_text = text[:max_length]
+
+    try:
+        result = classifier(truncated_text)[0]
+        sentiment = star_to_sentiment(result['label'])
+        score = result['score']
+    except Exception as e:
+        sentiment = 'Error'
+        score = str(e)
+
+    return sentiment, score
+
+# 병렬 처리 함수
+def process_batch(start_idx, end_idx):
+    batch_results = []
+    for idx in tqdm.tqdm(range(start_idx, end_idx)):
+        text = comments_df.iloc[idx]['textOriginal']
+        sentiment, sentiment_score = analyze_sentiment(text, idx)
+        batch_results.append((sentiment, sentiment_score))
+    return batch_results
+
+# 모든 가용 코어 사용
+num_workers = os.cpu_count()
+batch_size = len(comments_df) // num_workers
+futures = []
+
+with ThreadPoolExecutor(max_workers=num_workers) as executor:
+    for i in range(num_workers):
+        start_idx = i * batch_size
+        end_idx = (i + 1) * batch_size if i != num_workers - 1 else len(comments_df)
+        futures.append(executor.submit(process_batch, start_idx, end_idx))
+
+# 결과 병합
+results = []
+for future in futures:
+    results.extend(future.result())
+
+# 결과를 데이터프레임에 추가
+comments_df['sentiment'] = [result[0] for result in results]
+comments_df['sentiment_score'] = [result[1] for result in results]
+
+# 감성 분석 통계 계산
+sentiment_counts = comments_df['sentiment'].value_counts()
+sentiment_scores = comments_df.groupby('sentiment')['sentiment_score'].describe()
+
+# 결과 확인
+print(comments_df[['sentiment', 'sentiment_score']])
+print("\nSentiment Counts:\n", sentiment_counts)
+print("\nSentiment Scores Statistics:\n", sentiment_scores)
+
+
+```
+
+## 4.2. BERT 감성분석
+
+**감성분석 완료파일**
+
+```{r}
+comments_sentiments_raw  <- read_csv("data/comments_with_sentiment.csv")
+
+comments_sentiments <- comments_sentiments_raw |> 
+  select(videoId, id, textOriginal, sentiment, sentiment_score) 
+
+comments_sentiments |> 
+  write_csv("data/python/comments_with_sentiments.csv")
+
+```
+
+**감성분석 추가파일**
+
+```{python}
+import pandas as pd
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
+import os
+from transformers import pipeline
+
+# 1. 감성분석 대상 식별 --------------
+## comments_raw.csv 파일 읽어오기
+comments_raw = pd.read_csv("data/python/comments_raw.csv")
+## comments_with_sentiments.csv 파일 읽어오기
+try:
+    comments_with_sentiments = pd.read_csv("data/python/comments_with_sentiments.csv")
+except FileNotFoundError:
+    comments_with_sentiments = pd.DataFrame(columns=['videoId', 'id', 'sentiment'])
+## comments_with_sentiments에 이미 존재하는 댓글 식별자 집합 만들기
+processed_comment_ids = set(comments_with_sentiments[['videoId', 'id']].apply(tuple, axis=1))
+## 감성 분석되지 않은 댓글만 필터링하기
+unprocessed_comments_raw = comments_raw[~comments_raw[['videoId', 'id']].apply(tuple, axis=1).isin(processed_comment_ids)]
+unprocessed_comments = unprocessed_comments_raw[['videoId', 'id', 'textOriginal']]
+# NaN 값 제거
+unprocessed_comments_df = unprocessed_comments.dropna(subset=['textOriginal'])
+
+# 감성 분석 파이프라인 초기화
+classifier = pipeline("text-classification", model='nlptown/bert-base-multilingual-uncased-sentiment')
+
+# 별점을 감성으로 변환하는 함수 정의
+def star_to_sentiment(star_label):
+    if star_label in ['1 star', '2 stars']:
+        return 'Negative'
+    elif star_label == '3 stars':
+        return 'Neutral'
+    elif star_label in ['4 stars', '5 stars']:
+        return 'Positive'
+    else:
+        return 'Error'
+
+# 감성 분석 함수 정의 (텍스트 자르기 포함)
+def analyze_sentiment(text, idx):
+    if not isinstance(text, str):
+        return 'Error', 0.0
+    # 최대 토큰 길이 설정
+    max_length = 512
+    truncated_text = text[:max_length]
+    try:
+        result = classifier(truncated_text)[0]
+        sentiment = star_to_sentiment(result['label'])
+        score = result['score']
+    except Exception as e:
+        sentiment = 'Error'
+        score = str(e)
+    return sentiment, score
+
+# 병렬 처리 함수
+def process_batch(batch_df):
+    batch_results = []
+    for idx, row in tqdm(batch_df.iterrows(), total=len(batch_df)):
+        text = row['textOriginal']
+        sentiment, sentiment_score = analyze_sentiment(text, idx)
+        batch_results.append({'videoId': row['videoId'], 'id': row['id'], 'sentiment': sentiment, 'sentiment_score': sentiment_score})
+    return batch_results
+
+# 모든 가용 코어 사용
+num_workers = os.cpu_count()
+batch_size = len(unprocessed_comments_df) // num_workers
+futures = []
+with ThreadPoolExecutor(max_workers=num_workers) as executor:
+    for i in range(num_workers):
+        start_idx = i * batch_size
+        end_idx = (i + 1) * batch_size if i != num_workers - 1 else len(unprocessed_comments_df)
+        batch_df = unprocessed_comments_df.iloc[start_idx:end_idx]
+        futures.append(executor.submit(process_batch, batch_df))
+
+# 결과 병합
+sentiments = []
+for future in futures:
+    sentiments.extend(future.result())
+
+# 결과를 데이터프레임으로 변환
+sentiments_df = pd.DataFrame(sentiments)
+
+# 기존 comments_with_sentiments와 새로운 감성 분석 결과를 합치기
+updated_comments_with_sentiments = pd.concat([comments_with_sentiments, sentiments_df], ignore_index=True)
+
+# 업데이트된 comments_with_sentiments를 CSV 파일로 저장하기
+updated_comments_with_sentiments.to_csv("data/python/comments_with_sentiments.csv", index=False)
+```
+
+**textOriginal 삭제**
+
+```{r}
+comments_sentiments_raw  <- read_csv("data/python/comments_with_sentiments.csv")
+
+comments_sentiments_raw |> 
+  select(-textOriginal) |> 
+  write_csv("data/python/comments_with_sentiments.csv")
+
+```
+
+
+

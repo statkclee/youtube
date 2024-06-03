@@ -13,3 +13,5 @@ bfg.jar
 data/comments_raw_second.csv
 data/comments_with_sentiment_second.csv
 
+.env
+data/python/
