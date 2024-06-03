@@ -1,5 +1,5 @@
 ---
-title: "델리민주 유튜브 대시보드"
+title: "델리민주 대시보드"
 format: 
   dashboard:
     logo: assets/daily_minju.jpg
@@ -10,7 +10,7 @@ editor_options:
 
 {{< include channel.qmd >}}
 
-{{< include comments_stat.qmd >}}
+{{< include comments_user.qmd >}}
 
-{{< comments_sentiment.qmd >}}
+{{< include comments_sentiment.qmd >}}
 

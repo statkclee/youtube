@@ -1,4 +1,3 @@
-
 # 채널
 
 ```{r}
@@ -6,7 +5,7 @@ library(readr)
 
 # minju_channel_stat <-   readr::read_csv(str_glue("data/minju_channel_stat_{str_remove_all(Sys.Date(), '-')}.csv"))
 
-minju_channel_stat <- readr::read_csv("data/minju_channel_stat_20240530.csv")
+minju_channel_stat <- readr::read_csv("data/minju_channel_stat.csv")
 ```
 
 
@@ -56,13 +55,13 @@ library(reactable)
 # minju_videos_stats_tbl <- 
 # readr::read_csv(str_glue("data/minju_videos_stats_{str_remove_all(Sys.Date(), '-')}.csv"))
 
-minju_videos_stats_tbl <- readr::read_csv("data/minju_videos_stats_20240530.csv")
+minju_videos_stats_tbl <- readr::read_csv("data/minju_videos_stats.csv")
 
 
 minju_videos_stats_tbl |> 
-  arrange(desc(publication_date)) |> 
-  mutate(게시일 = floor_date(publication_date, unit = "day") |> as.Date()) |> 
-  select(vidoe_id = id, 명칭=title, 게시일, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
+  arrange(desc(publishedAt)) |> 
+  mutate(게시일 = floor_date(publishedAt, unit = "day") |> as.Date()) |> 
+  select(vidoe_id = videoId, 동영상명=title, 게시일, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
   reactable(
       searchable = TRUE,
       defaultColDef = colDef(
@@ -72,7 +71,7 @@ minju_videos_stats_tbl |>
         headerStyle = list(background = "#f7f7f8")
       ),
       columns = list(
-        명칭 = colDef(minWidth = 80),
+        동영상명 = colDef(minWidth = 80),
         게시일 = colDef(show = TRUE),
         조회수   = colDef(format = colFormat(separators = TRUE,  digits = 0)),
         좋아요수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
@@ -96,11 +95,11 @@ minju_videos_stats_tbl |>
 
 ```{r}
 yt_g <- minju_videos_stats_tbl |> 
-  select(title, publication_date, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
+  select(title, publishedAt, 조회수=viewCount, 좋아요수=likeCount, 댓글수=commentCount) |> 
   pivot_longer(cols = c(조회수, 좋아요수, 댓글수), names_to = "key", values_to = "value") |> 
   mutate(key = factor(key, levels = c("조회수", "좋아요수", "댓글수"))) |> 
-  ggplot(aes(x = publication_date, y = value, group = key, color = key,
-             text = str_glue("{title}<br>{floor_date(publication_date, unit = 'day')}"))) +
+  ggplot(aes(x = publishedAt, y = value, group = key, color = key,
+             text = str_glue("{title}<br>{floor_date(publishedAt, unit = 'day')}"))) +
     geom_line(size = 0.3) +
     geom_point(size = 0.5) +
     facet_grid(rows = vars(key), scales = "free_y") +

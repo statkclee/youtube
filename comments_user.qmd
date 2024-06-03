@@ -1,0 +1,168 @@
+```{r}
+#| eval: false
+#| include: false
+library(tidyverse)
+
+# 1. 댓글 데이터 ------------------
+comments_raw <- read_csv("data/python/comments_raw.csv")
+
+## 댓글 사용자수 ----------------
+number_of_users <- comments_raw |> 
+  count(authorChannelUrl) |> 
+  nrow()
+
+## 댓글수 ----------------
+number_of_comments <- comments_raw |> 
+  nrow()
+
+## 비디오수 ----------------
+number_of_videos <- comments_raw |> 
+  count(videoId) |>
+  nrow()
+
+comments_vb_tbl <- 
+  tibble("댓글 사용자수" = number_of_users,
+         "댓글수" = number_of_comments,
+         "비디오수" = number_of_videos)
+
+comments_vb_tbl |> 
+  write_csv("data/comments_vb_tbl.csv")
+
+# 2. 댓글 데이터 ------------------
+
+comments_raw |> 
+  # filter(authorDisplayName == "@kim860920") |>
+  mutate(답글 = ifelse(is.na(parentId), 0, 1)) |>
+  select(videoId, authorDisplayName, parentId, likeCount, textDisplay, 답글) |> 
+  group_by(authorDisplayName) |>
+  summarise(동영상수 = n_distinct(videoId),
+            좋아요수 = sum(likeCount),
+            댓글수   = n(),
+            답글수   = sum(답글)) |> 
+  ungroup() |>
+  arrange(desc(좋아요수)) |> 
+  write_csv("data/comments_stat_summary.csv")
+
+```
+
+
+# 댓글러
+
+```{r}
+library(readr)
+
+comments_vb_tbl <-  
+  read_csv("data/comments_vb_tbl.csv")
+
+## 댓글 통계 요약
+comments_stat_tbl <- read_csv("data/comments_stat_summary.csv")
+
+```
+
+
+## Row
+
+```{r}
+#| content: valuebox
+#| title: "댓글단 사람수"
+
+list(
+  icon = "hospital",
+  color = "yellow",
+  value = scales::comma(comments_vb_tbl$`댓글 사용자수`)
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "댓글수"
+
+list(
+  icon = "moon-fill",
+  color = "danger",
+  value = scales::comma(comments_vb_tbl$`댓글수`)
+)
+```
+
+
+```{r}
+#| content: valuebox
+#| title: "평균 댓글수"
+
+list(
+  icon = "heart-fill",
+  color = "green",
+  value = scales::comma(comments_vb_tbl$`댓글수` / comments_vb_tbl$`비디오수`)
+)
+```
+
+## Column
+
+::: {.card}
+
+```{r}
+library(reactable)
+
+comments_stat_tbl |> 
+  rename(사용자명 = authorDisplayName) |> 
+  reactable(
+      searchable = TRUE,
+      defaultColDef = colDef(
+        header = function(value) gsub(".", " ", value, fixed = TRUE),
+        align = "center",
+        minWidth = 30,
+        headerStyle = list(background = "#f7f7f8")
+      ),
+      columns = list(
+        사용자명 = colDef(minWidth = 50),
+        관여_동영상수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        좋아요수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        댓글수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+        답글수 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+      bordered = TRUE,
+      highlight = TRUE)    
+  )
+
+```
+
+
+:::
+
+::: {.card}
+
+```{r}
+library(tidyverse)
+library(umap)
+library(parallel)
+library(plotly)
+
+comments_stat_samples <- comments_stat_tbl |> 
+  slice_sample(n = 1000)
+
+# authorDisplayName을 제외한 나머지 변수 선택
+numeric_data <- comments_stat_samples %>%
+  select(-authorDisplayName)
+
+# 스케일링
+scaled_data <- scale(numeric_data)
+
+umap_result <- umap(scaled_data)
+
+# 차원 축소 결과와 authorDisplayName 결합
+result <- data.frame(umap_result$layout, 
+                     authorDisplayName = comments_stat_samples$authorDisplayName)
+
+# ggplot 객체 생성
+p <- ggplot(result, aes(x = X1, y = X2, text = authorDisplayName)) +
+  geom_point(size = 1, alpha = 0.7) +
+  theme_minimal() +
+  labs(x = "차원 1", y = "차원 2", title = "유튜브 댓글러 군집 시각화")
+
+# ggplotly를 사용하여 인터랙티브 시각화 생성
+ggplotly(p, tooltip = "text")
+```
+
+
+:::
+
+

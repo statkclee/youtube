@@ -2,7 +2,10 @@ project:
   type: website
   output-dir: docs
   render:
-    - "*.qmd"
+    - "index.qmd"
+    - "channel.qmd"
+    - "comments_user.qmd"
+    - "comments_sentiment.qmd"
 
 website:
   title: "youtube"

@@ -1,11 +1,36 @@
 
-# 댓글 감성분석
+```{r}
+#| eval: false
+#| include: false
+library(readr)
 
+comment_sentiment_raw <- readr::read_csv("data/python/comments_with_sentiments.csv")
+
+comment_sentiment_stat <- comment_sentiment_raw |> 
+  group_by(videoId) |> 
+  summarise(
+    긍정 = sum(sentiment == "Positive"),
+    부정 = sum(sentiment == "Negative"),
+    중립 = sum(sentiment == "Neutral")) |> 
+  mutate(
+    댓글수 = 긍정 + 부정 + 중립,
+    긍정비율 = 긍정 / 댓글수,
+    중립비율 = 중립 / 댓글수,
+    부정비율 = 부정 / 댓글수) 
+
+comment_sentiment_stat |> 
+  write_csv("data/comment_sentiment_stat.csv")
+
+```
+
+
+# 댓글 감성분석
 
 ```{r}
 library(readr)
 
-comment_sentiment_stat <- readr::read_csv("data/comment_sentiment_stat_all.csv")
+comment_sentiment_stat <- 
+  read_csv("data/comment_sentiment_stat.csv")
 
 comment_sentiment_all <- comment_sentiment_stat |> 
   summarise(긍정 = sum(긍정),
@@ -16,7 +41,6 @@ comment_sentiment_all <- comment_sentiment_stat |>
          부정비율 = 부정 / sum(긍정, 부정, 중립))
 
 ```
-
 
 ## Row
 
