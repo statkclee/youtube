@@ -14,49 +14,33 @@ editor_options:
 
 {{< include comments_sentiment.qmd >}}
 
-# 동영상 댓글
+{{< include comments_details.qmd >}}
 
-## 동영상, 댓글, 감성상세 (2024년 Only)
+# 채널 상세 (한국R사용자회)
 
 ```{r}
 library(tidyverse)
-library(reactable)
-library(fst)
 
-comments_display_tbl <- 
-  read.fst("data/comments_display_tbl.fst")
+analytics_raw <- read_csv("data/youtube_analytics_R.csv")
 
-comments_display_tbl |> 
-  arrange(desc(publishedAt)) |> 
-  mutate(게시일자 = as.Date(publishedAt)) |>
-  select(-id, -publishedAt) |> 
-  rename(댓글 = textOriginal, 감정 = sentiment, 감정지지도= sentiment_score) |>
-  rename(vidoe_id = videoId) |> 
-  select(vidoe_id, 게시일자, 댓글, 감정, 감정지지도) |>
-  # slice_sample(n = 10) |>
-  reactable(
-    searchable = TRUE,
-    defaultColDef = colDef(
-      header = function(value) gsub(".", " ", value, fixed = TRUE),
-      align = "center",
-      minWidth = 30,
-      headerStyle = list(background = "#f7f7f8")
-    ),
-    columns = list(
-        vidoe_id = colDef(html = TRUE, cell = JS("
-          function(cellInfo) {
-            // Render as a link
-            return '<a href=https://www.youtube.com//watch?v=' + cellInfo.value + '/>' + cellInfo.value + '</a>'
-          }"),
-        minWidth = 25
-        ),
-      댓글 = colDef(minWidth = 100),
-      감정 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
-      감정지지도 = colDef(format = colFormat(percent = TRUE, digits = 1)),
-    bordered = TRUE,
-    highlight = TRUE)    
-)
+analytics_g <- analytics_raw |> 
+  set_names(c("날짜", "조회수", "시청시간_분", "구독자수")) |>
+  filter(날짜 != "2024-06") |>
+  pivot_longer(cols = -날짜, names_to = "지표", values_to = "값") |>
+  mutate(날짜 = as.Date(paste0(날짜, "-01"))) |> 
+  ggplot(aes(x = 날짜, y = 값, color = 지표, group = 지표,
+             text = str_glue("{날짜} <br> {scales::comma(값)}"))) +
+    geom_line() +
+    geom_point() +
+    labs(title = "한국 R 사용자회 채널 통계", 
+         x = NULL, 
+         y = "구독자수, 시청시간(분), 조회수") +
+    theme_minimal() +
+    facet_wrap(~지표, scales = "free_y") +
+    theme(legend.position = "none") +
+    scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+    scale_y_continuous(labels = scales::comma)
 
+plotly::ggplotly(analytics_g, tooltip = "text")
 ```
-
 
