@@ -14,3 +14,49 @@ editor_options:
 
 {{< include comments_sentiment.qmd >}}
 
+# 동영상 댓글
+
+## 동영상, 댓글, 감성상세 (2024년 Only)
+
+```{r}
+library(tidyverse)
+library(reactable)
+library(fst)
+
+comments_display_tbl <- 
+  read.fst("data/comments_display_tbl.fst")
+
+comments_display_tbl |> 
+  arrange(desc(publishedAt)) |> 
+  mutate(게시일자 = as.Date(publishedAt)) |>
+  select(-id, -publishedAt) |> 
+  rename(댓글 = textOriginal, 감정 = sentiment, 감정지지도= sentiment_score) |>
+  rename(vidoe_id = videoId) |> 
+  select(vidoe_id, 게시일자, 댓글, 감정, 감정지지도) |>
+  # slice_sample(n = 10) |>
+  reactable(
+    searchable = TRUE,
+    defaultColDef = colDef(
+      header = function(value) gsub(".", " ", value, fixed = TRUE),
+      align = "center",
+      minWidth = 30,
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    columns = list(
+        vidoe_id = colDef(html = TRUE, cell = JS("
+          function(cellInfo) {
+            // Render as a link
+            return '<a href=https://www.youtube.com//watch?v=' + cellInfo.value + '/>' + cellInfo.value + '</a>'
+          }"),
+        minWidth = 25
+        ),
+      댓글 = colDef(minWidth = 100),
+      감정 = colDef(format = colFormat(separators = TRUE,  digits = 0)),
+      감정지지도 = colDef(format = colFormat(percent = TRUE, digits = 1)),
+    bordered = TRUE,
+    highlight = TRUE)    
+)
+
+```
+
+

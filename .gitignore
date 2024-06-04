@@ -15,4 +15,6 @@ data/comments_with_sentiment_second.csv
 
 .env
 data/python/
-data/r_data
+data/r_data/
+assets/namumsquare
+assets/comments_nouns_wc.rds

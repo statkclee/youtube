@@ -15,6 +15,10 @@ format:
     theme: cosmo
     css: styles.css
     toc: true
+    resources: 
+      - shinylive-sw.js    
 
-
+# ---------------------------------- #
+filters:
+  - shinylive
 
